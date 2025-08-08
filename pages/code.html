@@ -1,0 +1,69 @@
+<!-- pages/code.html -->
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Code Source – Volume Adaptatif Pro</title>
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+  <div class="app-container">
+    <nav class="main-nav">
+      <div class="nav-brand">
+        <h1>Volume Adaptatif Pro</h1>
+      </div>
+      <div class="nav-tabs">
+        <button class="nav-tab" onclick="location.href='demo.html'">Démonstration</button>
+        <button class="nav-tab active">Code Source</button>
+        <button class="nav-tab" onclick="location.href='settings.html'">Paramètres</button>
+      </div>
+    </nav>
+    <div class="tab-content active">
+      <div class="card">
+        <h2>Manifest (manifest.json)</h2>
+        <pre><code>{
+  "manifest_version": 3,
+  "name": "Volume Adaptatif Pro",
+  "version": "1.0.0",
+  ...
+}
+</code></pre>
+      </div>
+      <div class="card">
+        <h2>background.js</h2>
+        <pre><code>// Service worker principal
+class VolumeAdaptiveManager {
+  ...
+}
+const volumeManager = new VolumeAdaptiveManager();
+</code></pre>
+      </div>
+      <div class="card">
+        <h2>content.js</h2>
+        <pre><code>// Script injecté
+class ConferenceAudioProcessor {
+  ...
+}
+const audioProcessor = new ConferenceAudioProcessor();
+</code></pre>
+      </div>
+      <div class="card">
+        <h2>inject.js</h2>
+        <pre><code>(function(){
+  'use strict';
+  class AudioEnhancer {
+    ...
+  }
+  new AudioEnhancer();
+})();
+</code></pre>
+      </div>
+      <div class="card">
+        <h2>popup.html / popup.css / popup.js</h2>
+        <p>Voir <code>popup.html</code>, <code>popup.css</code> et <code>popup.js</code> aux racines du projet.</p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

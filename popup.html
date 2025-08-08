@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Volume Adaptatif Pro</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="popup-container">
+    <header class="popup-header">
+      <h1>Volume Adaptatif Pro</h1>
+      <div class="status-indicator">
+        <div class="status-dot" id="statusDot"></div>
+        <span id="statusText">Inactif</span>
+      </div>
+    </header>
+    
+    <main class="popup-main">
+      <!-- Contrôle principal -->
+      <section class="control-section">
+        <button id="powerButton" class="power-button">
+          <span class="power-icon">⏻</span>
+          <span class="power-text">Activer</span>
+        </button>
+      </section>
+      
+      <!-- Niveau de bruit actuel -->
+      <section class="noise-section">
+        <div class="noise-display">
+          <div class="noise-level">
+            <span id="noiseValue">-- dB</span>
+            <div class="noise-label">Bruit ambiant</div>
+          </div>
+          <div class="noise-bar">
+            <div class="noise-fill" id="noiseFill"></div>
+          </div>
+        </div>
+      </section>
+      
+      <!-- Sensibilité -->
+      <section class="sensitivity-section">
+        <label class="section-label">Sensibilité</label>
+        <div class="sensitivity-controls">
+          <button class="sensitivity-btn" data-level="low">Faible</button>
+          <button class="sensitivity-btn active" data-level="medium">Moyen</button>
+          <button class="sensitivity-btn" data-level="high">Élevé</button>
+        </div>
+      </section>
+      
+      <!-- Gains actuels -->
+      <section class="gains-section">
+        <div class="gain-item">
+          <span class="gain-label">Haut-parleurs</span>
+          <div class="gain-bar">
+            <div class="gain-fill" id="speakerGainFill"></div>
+          </div>
+          <span class="gain-value" id="speakerGainValue">100%</span>
+        </div>
+        <div class="gain-item">
+          <span class="gain-label">Microphone</span>
+          <div class="gain-bar">
+            <div class="gain-fill" id="micGainFill"></div>
+          </div>
+          <span class="gain-value" id="micGainValue">100%</span>
+        </div>
+      </section>
+      
+      <!-- Boutons d'action -->
+      <section class="actions-section">
+        <button id="calibrateButton" class="btn btn-secondary">
+          <span>🎯</span> Calibrer
+        </button>
+        <button id="settingsButton" class="btn btn-outline">
+          <span>⚙️</span> Paramètres
+        </button>
+      </section>
+    </main>
+  </div>
+  
+  <script src="popup.js"></script>
+</body>
+</html>

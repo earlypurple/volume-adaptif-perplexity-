@@ -1,0 +1,97 @@
+/* style.css (pour la démo web/app.js) */
+
+:root {
+  --bg-light: #fafafa;
+  --bg-dark: #2c3e50;
+  --text-light: #ecf0f1;
+  --text-dark: #2c3e50;
+  --accent: #3498db;
+  --accent-2: #e67e22;
+}
+
+body {
+  margin: 0;
+  font-family: 'Segoe UI', sans-serif;
+  background: var(--bg-light);
+  color: var(--text-dark);
+}
+
+.app-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.main-nav {
+  display: flex;
+  align-items: center;
+  background: var(--bg-dark);
+  color: var(--text-light);
+  padding: 12px 16px;
+}
+
+.nav-brand h1 {
+  margin: 0;
+  font-size: 20px;
+}
+
+.nav-tabs {
+  margin-left: 24px;
+}
+
+.nav-tab {
+  background: transparent;
+  border: none;
+  color: var(--text-light);
+  margin-right: 12px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.nav-tab.active {
+  border-bottom: 2px solid var(--accent);
+}
+
+.theme-toggle button {
+  background: transparent;
+  border: none;
+  color: var(--text-light);
+  cursor: pointer;
+  margin-left: auto;
+}
+
+.tab-content {
+  flex: 1;
+  display: none;
+  padding: 16px;
+  overflow-y: auto;
+}
+
+.tab-content.active {
+  display: block;
+}
+
+.card {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+  margin-bottom: 16px;
+  padding: 16px;
+}
+
+.status-indicator {
+  display: flex;
+  align-items: center;
+}
+
+.status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-left: 8px;
+  background: #e74c3c;
+}
+
+.status-dot.active {
+  background: #2ecc71;
+}

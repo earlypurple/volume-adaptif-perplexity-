@@ -1,0 +1,103 @@
+<!-- pages/settings.html -->
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Paramètres – Volume Adaptatif Pro</title>
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+  <div class="app-container">
+    <nav class="main-nav">
+      <div class="nav-brand"><h1>Volume Adaptatif Pro</h1></div>
+      <div class="nav-tabs">
+        <button class="nav-tab" onclick="location.href='demo.html'">Démonstration</button>
+        <button class="nav-tab" onclick="location.href='code.html'">Code Source</button>
+        <button class="nav-tab active">Paramètres</button>
+      </div>
+    </nav>
+    <div class="tab-content active">
+      <div class="card">
+        <h2>Profils par Domaine</h2>
+        <ul id="profileList">
+          <!-- Chargé dynamiquement -->
+        </ul>
+        <button id="addProfile" class="btn btn-secondary">Ajouter un profil</button>
+      </div>
+      <div class="card">
+        <h2>Réglages Généraux</h2>
+        <label>Sensibilité :</label>
+        <select id="sensitivitySelect">
+          <option value="low">Faible</option>
+          <option value="medium">Moyen</option>
+          <option value="high">Élevé</option>
+        </select>
+        <label><input type="checkbox" id="voicePriority"> Priorité vocale</label>
+      </div>
+      <div class="card">
+        <h2>Seuil Critique</h2>
+        <label>Niveau d'alerte (dB):</label>
+        <input type="number" id="alertThreshold" min="20" max="120" value="80">
+      </div>
+      <div class="card">
+        <button id="saveSettings" class="btn btn-outline">Enregistrer</button>
+      </div>
+    </div>
+  </div>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const profiles = document.getElementById('profileList');
+      const addBtn = document.getElementById('addProfile');
+      const saveBtn = document.getElementById('saveSettings');
+      const sens = document.getElementById('sensitivitySelect');
+      const voiceChk = document.getElementById('voicePriority');
+      const alertInput = document.getElementById('alertThreshold');
+
+      // Charger les paramètres existants
+      chrome.storage.sync.get(['volumeSettings'], (res) => {
+        const s = res.volumeSettings || {};
+        sens.value = s.sensitivity || 'medium';
+        voiceChk.checked = s.voicePriority || false;
+        alertInput.value = s.alertThreshold || 80;
+        // Profils
+        (s.profiles || []).forEach(p => addProfileItem(p.domain, p.settings));
+      });
+
+      function addProfileItem(domain = '', settings = {}) {
+        const li = document.createElement('li');
+        li.innerHTML = `<input type="text" class="profile-domain" placeholder="domaine" value="${domain}">
+                        <select class="profile-gain">
+                          <option value="1.0" ${settings.defaultGain==1?'selected':''}>Gain x1.0</option>
+                          <option value="1.1" ${settings.defaultGain==1.1?'selected':''}>Gain x1.1</option>
+                          <option value="1.2" ${settings.defaultGain==1.2?'selected':''}>Gain x1.2</option>
+                        </select>
+                        <button class="btn btn-outline remove-btn">Supprimer</button>`;
+        profiles.appendChild(li);
+        li.querySelector('.remove-btn').addEventListener('click', () => profiles.removeChild(li));
+      }
+
+      addBtn.addEventListener('click', () => addProfileItem());
+
+      saveBtn.addEventListener('click', () => {
+        const profs = [];
+        profiles.querySelectorAll('li').forEach(li => {
+          profs.push({
+            domain: li.querySelector('.profile-domain').value.trim(),
+            defaultGain: parseFloat(li.querySelector('.profile-gain').value)
+          });
+        });
+        const settings = {
+          sensitivity: sens.value,
+          voicePriority: voiceChk.checked,
+          alertThreshold: parseInt(alertInput.value),
+          profiles: profs
+        };
+        chrome.storage.sync.set({ volumeSettings: settings }, () => {
+          alert('Paramètres enregistrés !');
+        });
+      });
+    });
+  </script>
+</body>
+</html>
