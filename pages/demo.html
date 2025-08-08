@@ -22,11 +22,7 @@
       <div class="card">
         <h2>Simulation d'Environnements</h2>
         <select id="envSelect">
-          <option value="0">Bureau silencieux</option>
-          <option value="1">Bureau ouvert</option>
-          <option value="2">Café</option>
-          <option value="3">Rue passante</option>
-          <option value="4">Construction</option>
+          <!-- Options will be loaded by demo.js -->
         </select>
         <button id="startSim" class="btn btn-secondary">Démarrer la simulation</button>
       </div>
@@ -40,65 +36,6 @@
       </div>
     </div>
   </div>
-  <script>
-    // Extrait de app.js pour démo
-    // Simulation de données et mise à jour Chart.js
-    const envs = [
-      { name: 'Bureau silencieux', base: 35, var: 5 },
-      { name: 'Bureau ouvert', base: 45, var: 8 },
-      { name: 'Café', base: 55, var: 12 },
-      { name: 'Rue passante', base: 65, var: 15 },
-      { name: 'Construction', base: 75, var: 20 }
-    ];
-    let rtChart, pfChart, simInterval;
-    document.addEventListener('DOMContentLoaded', () => {
-      const ctx = document.getElementById('realtimeChart').getContext('2d');
-      rtChart = new Chart(ctx, {
-        type: 'line',
-         { labels: [], datasets: [
-          { label: 'Bruit (dB)', data: [], borderColor: '#3498db' },
-          { label: 'Gain Haut-parleur', data: [], borderColor: '#e67e22' }
-        ]},
-        options: { animation: false, responsive: true }
-      });
-      const pctx = document.getElementById('perfChart').getContext('2d');
-      pfChart = new Chart(pctx, {
-        type: 'bar',
-         { labels: [], datasets: [
-          { label: 'Latence (ms)', data: [], backgroundColor: '#2ecc71' },
-          { label: 'CPU (%)', data: [], backgroundColor: '#e74c3c' }
-        ]},
-        options: { responsive: true }
-      });
-      document.getElementById('startSim').addEventListener('click', () => {
-        clearInterval(simInterval);
-        const idx = document.getElementById('envSelect').value;
-        const env = envs[idx];
-        simInterval = setInterval(() => {
-          const noise = env.base + (Math.random()*2-1)*env.var;
-          const gain = 1 + 0.04*(noise-env.base);
-          const time = new Date().toLocaleTimeString();
-          // Mettre à jour realtimeChart
-          rtChart.data.labels.push(time);
-          rtChart.data.datasets[0].data.push(noise.toFixed(1));
-          rtChart.data.datasets[1].data.push(gain.toFixed(2));
-          if(rtChart.data.labels.length>20) {
-            rtChart.data.labels.shift();
-            rtChart.data.datasets.forEach(ds=>ds.data.shift());
-          }
-          rtChart.update();
-          // Mettre à jour perfChart
-          pfChart.data.labels.push(time);
-          pfChart.data.datasets[0].data.push((Math.random()*50+10).toFixed(0));
-          pfChart.data.datasets[1].data.push((Math.random()*30+5).toFixed(0));
-          if(pfChart.data.labels.length>20) {
-            pfChart.data.labels.shift();
-            pfChart.data.datasets.forEach(ds=>ds.data.shift());
-          }
-          pfChart.update();
-        }, 500);
-      });
-    });
-  </script>
+  <script src="demo.js"></script>
 </body>
 </html>
