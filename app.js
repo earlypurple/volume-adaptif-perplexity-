@@ -1,5 +1,5 @@
 // Algorithme principal de volume adaptatif
-class AdaptiveVolumeAlgorithm {
+export class AdaptiveVolumeAlgorithm {
   constructor(options = {}) {
     this.referenceLevel = options.referenceLevel || 35;
     this.sensitivity = options.sensitivity || 'medium';
@@ -257,7 +257,7 @@ function initCharts() {
   const rtCtx = document.getElementById('realtimeChart').getContext('2d');
   realtimeChart = new Chart(rtCtx, {
     type: 'line',
-     {
+    data: {
       labels: [],
       datasets: [
         { label: 'Niveau de bruit (dB)', data: [], borderColor: '#3498db', fill: false },
@@ -276,11 +276,11 @@ function initCharts() {
   const pfCtx = document.getElementById('perfChart').getContext('2d');
   perfChart = new Chart(pfCtx, {
     type: 'bar',
-     {
+    data: {
       labels: [],
       datasets: [
         { label: 'Latence (ms)', data: [], backgroundColor: '#2ecc71' },
-        { label: 'CPU (%)',       [], backgroundColor: '#e74c3c' }
+        { label: 'CPU (%)',      data: [], backgroundColor: '#e74c3c' }
       ]
     },
     options: {
@@ -290,6 +290,32 @@ function initCharts() {
       }
     }
   });
+}
+
+function updateRealtimeChart(time, noise, gain) {
+  realtimeChart.data.labels.push(time);
+  realtimeChart.data.datasets[0].data.push(noise);
+  realtimeChart.data.datasets[1].data.push(gain);
+
+  if (realtimeChart.data.labels.length > 20) {
+    realtimeChart.data.labels.shift();
+    realtimeChart.data.datasets[0].data.shift();
+    realtimeChart.data.datasets[1].data.shift();
+  }
+  realtimeChart.update();
+}
+
+function updatePerfChart(time, latency, cpu) {
+    perfChart.data.labels.push(time);
+    perfChart.data.datasets[0].data.push(latency);
+    perfChart.data.datasets[1].data.push(cpu);
+
+    if (perfChart.data.labels.length > 20) {
+        perfChart.data.labels.shift();
+        perfChart.data.datasets[0].data.shift();
+        perfChart.data.datasets[1].data.shift();
+    }
+    perfChart.update();
 }
 
 // Démarrer la simulation
@@ -315,4 +341,6 @@ function startSimulation(envIndex) {
     // Mettre à jour graphiques
     const time = new Date().toLocaleTimeString();
     updateRealtimeChart(time, noise.toFixed(1), speakerGain.toFixed(2));
-    updatePerfChart(time, (Math.random() * 50 + 10).toFixed(0), (Math.random
+    updatePerfChart(time, (Math.random() * 50 + 10).toFixed(0), (Math.random() * 15).toFixed(2));
+  }, 500);
+}

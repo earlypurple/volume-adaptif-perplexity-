@@ -1,8 +1,61 @@
-{ "manifest_version": 3, "name": "Volume Adaptatif Pro", "version": "1.0.0", "description": "Ajustement automatique du volume pour conférences vidéo",
-"permissions":  "activeTab", "storage", "scripting" ,
-"host_permissions":  "https://zoom.us/", "https://.zoom.us/", "https://teams.microsoft.com/", "https://meet.google.com/", "https://webex.com/" ,
-"background": { "service_worker": "background.js", "type": "module" },
-"content_scripts": [{ "matches":  "https://zoom.us/", "https://.zoom.us/", "https://teams.microsoft.com/", "https://meet.google.com/", "https://webex.com/" , "js": "content.js", "all_frames": true }],
-"action": { "default_popup": "popup.html", "default_title": "Volume Adaptatif Pro" },
-"web_accessible_resources": [{ "resources": "inject.js", "matches": "<all_urls>" }],
-"icons": { "16": "icons/icon16.png", "32": "icons/icon32.png", "48": "icons/icon48.png", "128": "icons/icon128.png" } }
+{
+  "manifest_version": 3,
+  "name": "Volume Adaptatif Pro",
+  "version": "1.0.0",
+  "description": "Ajustement automatique du volume pour conférences vidéo",
+  "permissions": [
+    "activeTab",
+    "storage",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://zoom.us/*",
+    "https://*.zoom.us/*",
+    "https://teams.microsoft.com/*",
+    "https://meet.google.com/*",
+    "https://webex.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://zoom.us/*",
+        "https://*.zoom.us/*",
+        "https://teams.microsoft.com/*",
+        "https://meet.google.com/*",
+        "https://webex.com/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "all_frames": true
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Volume Adaptatif Pro"
+  },
+  "options_ui": {
+    "page": "pages/settings.html",
+    "open_in_tab": true
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "inject.js"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
+    }
+  ],
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}

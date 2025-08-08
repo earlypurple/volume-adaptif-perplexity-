@@ -1,16 +1,17 @@
+import { AdaptiveVolumeAlgorithm } from './app.js';
 
-### 2. **Background Script (background.js)**
-
-```javascript
 // Service Worker principal
 class VolumeAdaptiveManager {
   constructor() {
     this.isActive = false;
+    this.activeTabId = null;
     this.settings = {
       sensitivity: 'medium',
       voicePriority: false,
-      profiles: new Map()
+      referenceLevel: 35,
+      profiles: {}
     };
+    this.algorithm = new AdaptiveVolumeAlgorithm(this.settings);
     this.init();
   }
 
@@ -19,24 +20,32 @@ class VolumeAdaptiveManager {
     const stored = await chrome.storage.sync.get(['volumeSettings']);
     if (stored.volumeSettings) {
       this.settings = { ...this.settings, ...stored.volumeSettings };
+      this.algorithm.referenceLevel = this.settings.referenceLevel;
+      this.algorithm.setSensitivity(this.settings.sensitivity);
     }
     
-    // Écouter les messages des content scripts
+    // Écouter les messages
     chrome.runtime.onMessage.addListener(this.handleMessage.bind(this));
     
     // Écouter les changements d'onglets
     chrome.tabs.onActivated.addListener(this.handleTabChange.bind(this));
   }
 
+  handleTabChange({ tabId }) {
+      this.activeTabId = tabId;
+  }
+
   async handleMessage(message, sender, sendResponse) {
     switch (message.type) {
-      case 'ACTIVATE_VOLUME_CONTROL':
-        await this.activateVolumeControl(sender.tab.id);
-        sendResponse({ success: true });
+      case 'TOGGLE_ACTIVATION':
+        await this.toggleActivation(message.active, sender.tab.id);
+        sendResponse({ success: true, isActive: this.isActive });
         break;
         
       case 'NOISE_LEVEL_UPDATE':
-        this.processNoiseLevel(message.data, sender.tab.id);
+        if (this.isActive) {
+            this.processNoiseLevel(message.data, sender.tab.id);
+        }
         break;
         
       case 'GET_SETTINGS':
@@ -47,72 +56,93 @@ class VolumeAdaptiveManager {
         await this.updateSettings(message.settings);
         sendResponse({ success: true });
         break;
+
+      case 'START_CALIBRATION':
+        if(this.activeTabId) {
+            chrome.tabs.sendMessage(this.activeTabId, { type: 'START_CALIBRATION' });
+        }
+        break;
+
+      case 'CALIBRATION_COMPLETE':
+        this.settings.referenceLevel = message.referenceLevel;
+        this.algorithm.referenceLevel = message.referenceLevel;
+        await this.updateSettings({ referenceLevel: message.referenceLevel });
+        break;
     }
+    return true; // Indiquer une réponse asynchrone
   }
 
-  async activateVolumeControl(tabId) {
-    this.isActive = true;
-    
-    // Injecter le script de traitement audio
-    await chrome.scripting.executeScript({
-      target: { tabId },
-      files: ['inject.js']
-    });
+  async toggleActivation(shouldBeActive, tabId) {
+    this.isActive = shouldBeActive;
+    this.activeTabId = this.isActive ? tabId : null;
+
+    if (this.isActive) {
+        // Injecter le script de traitement audio
+        await chrome.scripting.executeScript({
+          target: { tabId },
+          files: ['inject.js']
+        });
+    }
     
     // Sauvegarder l'état
     await chrome.storage.sync.set({ 
-      volumeActive: true,
-      activeTabId: tabId 
+      volumeActive: this.isActive,
+      activeTabId: this.activeTabId
     });
   }
 
   processNoiseLevel(data, tabId) {
     const { noiseLevel, timestamp } = data;
     
-    // Calculer les nouveaux gains selon l'algorithme adaptatif
-    const gains = this.calculateAdaptiveGains(noiseLevel);
+    // Calculer les nouveaux gains via l'algorithme centralisé
+    const gains = this.algorithm.calculateGains(noiseLevel, timestamp);
     
-    // Envoyer les ajustements au content script
+    const finalGains = {
+        speakerGain: gains.speaker,
+        micGain: gains.mic,
+        timestamp: gains.timestamp
+    };
+
+    // 1. Envoyer les ajustements de HAUT-PARLEUR au content script
     chrome.tabs.sendMessage(tabId, {
-      type: 'APPLY_GAINS',
-      gains: gains
+      type: 'APPLY_SPEAKER_GAIN',
+      gain: finalGains.speakerGain
     });
-  }
 
-  calculateAdaptiveGains(currentLevel) {
-    const params = this.getAlgorithmParams();
-    const deltaB = currentLevel - this.getReferenceLevel();
-    
-    let gain;
-    if (deltaB > 0) {
-      gain = 1 + params.k_positive * deltaB;
-    } else {
-      gain = 1 + params.k_negative * deltaB;
-    }
-    
-    // Limiter le gain entre 0.1 et 3.0
-    gain = Math.max(0.1, Math.min(3.0, gain));
-    
-    return {
-      speakerGain: gain,
-      micGain: Math.min(gain * 0.8, 2.0), // Gain micro légèrement plus conservateur
-      timestamp: Date.now()
-    };
-  }
+    // 2. Injecter directement l'ajustement du MICROPHONE
+    chrome.scripting.executeScript({
+        target: { tabId: tabId },
+        func: (gain) => {
+            if (window.volumeAdaptiveControls && window.volumeAdaptiveControls.setMicGain) {
+                window.volumeAdaptiveControls.setMicGain(gain);
+            }
+        },
+        args: [finalGains.micGain],
+        world: 'MAIN'
+    });
 
-  getAlgorithmParams() {
-    const sensitivity = this.settings.sensitivity;
-    const params = {
-      low: { k_positive: 0.02, k_negative: 0.01 },
-      medium: { k_positive: 0.04, k_negative: 0.02 },
-      high: { k_positive: 0.06, k_negative: 0.03 }
-    };
-    return params[sensitivity] || params.medium;
+    // 3. Envoyer la mise à jour à la popup
+    chrome.runtime.sendMessage({
+        type: 'VOLUME_UPDATE',
+        data: {
+            noiseLevel: noiseLevel,
+            speakerGain: finalGains.speakerGain,
+            micGain: finalGains.micGain
+        }
+    });
   }
 
   async updateSettings(newSettings) {
     this.settings = { ...this.settings, ...newSettings };
+    if (newSettings.sensitivity) {
+        this.algorithm.setSensitivity(newSettings.sensitivity);
+    }
     await chrome.storage.sync.set({ volumeSettings: this.settings });
+  }
+
+  // Méthode pour obtenir le niveau de référence, maintenant gérée par l'algo
+  getReferenceLevel() {
+      return this.algorithm.referenceLevel;
   }
 }
 

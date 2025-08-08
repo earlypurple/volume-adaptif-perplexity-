@@ -172,8 +172,8 @@ class ConferenceAudioProcessor {
 
   handleMessage(message, sender, sendResponse) {
     switch (message.type) {
-      case 'APPLY_GAINS':
-        this.applyGains(message.gains);
+      case 'APPLY_SPEAKER_GAIN':
+        this.applySpeakerGain(message.gain);
         break;
         
       case 'START_CALIBRATION':
@@ -189,9 +189,7 @@ class ConferenceAudioProcessor {
     }
   }
 
-  applyGains(gains) {
-    const { speakerGain, micGain, timestamp } = gains;
-    
+  applySpeakerGain(speakerGain) {
     // Appliquer le gain aux éléments audio/vidéo
     this.gainNodes.forEach((gainNode, element) => {
       // Transition douce pour éviter les clics
@@ -201,7 +199,7 @@ class ConferenceAudioProcessor {
     });
     
     // Log pour debug
-    console.log(`Gains appliqués: Speaker=${speakerGain.toFixed(2)}, Mic=${micGain.toFixed(2)}`);
+    console.log(`Speaker gain appliqué: ${speakerGain.toFixed(2)}`);
   }
 
   async startCalibration() {

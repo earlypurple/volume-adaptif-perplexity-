@@ -82,7 +82,7 @@
         
         // Marquer pour traitement par l'extension
         audio.dataset = audio.dataset || {};
-        audio.dataset.volumeAdaptive = 'true';
+        audio.dataset.volumeEnhanced = 'true';
         
         return audio;
       };
