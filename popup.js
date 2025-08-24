@@ -36,16 +36,37 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function updateGainsUI(data) {
-      const { noiseLevel, speakerGain, micGain } = data;
-      // Niveau de bruit
-      noiseValue.textContent = `${Math.round(noiseLevel)} dB`;
-      noiseFill.style.width = `${Math.min(100, noiseLevel / 100 * 100)}%`;
-      // Gain haut-parleur
-      speakerGainVal.textContent = `${Math.round(speakerGain*100)}%`;
-      speakerGainFill.style.width = `${Math.min(100, speakerGain*100 / 2)}%`;
-      // Gain microphone
-      micGainVal.textContent = `${Math.round(micGain*100)}%`;
-      micGainFill.style.width = `${Math.min(100, micGain*100 / 2)}%`;
+      try {
+        const { noiseLevel, speakerGain, micGain } = data;
+        
+        // Validate data
+        if (typeof noiseLevel !== 'number' || isNaN(noiseLevel)) {
+          console.warn('Invalid noise level in UI update:', noiseLevel);
+          return;
+        }
+        
+        if (typeof speakerGain !== 'number' || isNaN(speakerGain)) {
+          console.warn('Invalid speaker gain in UI update:', speakerGain);
+          return;
+        }
+        
+        if (typeof micGain !== 'number' || isNaN(micGain)) {
+          console.warn('Invalid mic gain in UI update:', micGain);
+          return;
+        }
+        
+        // Niveau de bruit
+        noiseValue.textContent = `${Math.round(noiseLevel)} dB`;
+        noiseFill.style.width = `${Math.min(100, noiseLevel / 100 * 100)}%`;
+        // Gain haut-parleur
+        speakerGainVal.textContent = `${Math.round(speakerGain*100)}%`;
+        speakerGainFill.style.width = `${Math.min(100, speakerGain*100 / 2)}%`;
+        // Gain microphone
+        micGainVal.textContent = `${Math.round(micGain*100)}%`;
+        micGainFill.style.width = `${Math.min(100, micGain*100 / 2)}%`;
+      } catch (error) {
+        console.error('Error updating gains UI:', error);
+      }
   }
 
   function updateSensitivityUI(sensitivity) {
@@ -116,31 +137,40 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // --- Initialization ---
   async function initialize() {
-    // Charger l'état et les paramètres depuis le stockage
-    const data = await chrome.storage.sync.get(['volumeActive', 'volumeSettings', 'spatialAudioEnabled']);
+    try {
+      // Charger l'état et les paramètres depuis le stockage
+      const data = await chrome.storage.sync.get(['volumeActive', 'volumeSettings', 'spatialAudioEnabled']);
 
-    isActive = data.volumeActive || false;
-    spatialEnabled = data.spatialAudioEnabled || false;
-    spatialToggle.checked = spatialEnabled;
+      isActive = data.volumeActive || false;
+      spatialEnabled = data.spatialAudioEnabled || false;
+      
+      if (spatialToggle) {
+        spatialToggle.checked = spatialEnabled;
+      }
 
-    if (data.volumeSettings) {
-        currentSettings = data.volumeSettings;
-        updateSensitivityUI(currentSettings.sensitivity);
-    }
-    updateStatusUI();
+      if (data.volumeSettings) {
+          currentSettings = data.volumeSettings;
+          updateSensitivityUI(currentSettings.sensitivity);
+      }
+      updateStatusUI();
 
-    // Obtenir le statut de l'onglet actif
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (tab) {
-        try {
-            const response = await chrome.tabs.sendMessage(tab.id, { type: 'GET_STATUS' });
-            if (response) {
-                updateSpatialUI(response);
-            }
-        } catch (e) {
-            console.warn("L'onglet actif ne répond pas, peut-être une page protégée.", e);
-            spatialSection.style.display = 'none';
-        }
+      // Obtenir le statut de l'onglet actif
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (tab) {
+          try {
+              const response = await chrome.tabs.sendMessage(tab.id, { type: 'GET_STATUS' });
+              if (response) {
+                  updateSpatialUI(response);
+              }
+          } catch (e) {
+              console.warn("L'onglet actif ne répond pas, peut-être une page protégée.", e);
+              if (spatialSection) {
+                spatialSection.style.display = 'none';
+              }
+          }
+      }
+    } catch (error) {
+      console.error('Error during popup initialization:', error);
     }
   }
 

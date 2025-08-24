@@ -60,6 +60,17 @@ export class AdaptiveVolumeAlgorithm {
   
   // Fonction principale de calcul des gains
   calculateGains(currentNoiseLevel, timestamp = Date.now()) {
+    // Validation des paramètres d'entrée
+    if (typeof currentNoiseLevel !== 'number' || isNaN(currentNoiseLevel)) {
+      console.warn('Invalid noise level provided to calculateGains:', currentNoiseLevel);
+      return this.currentGains;
+    }
+    
+    if (typeof timestamp !== 'number' || isNaN(timestamp) || timestamp <= 0) {
+      console.warn('Invalid timestamp provided to calculateGains:', timestamp);
+      timestamp = Date.now();
+    }
+    
     // Éviter les mises à jour trop fréquentes
     if (timestamp - this.lastUpdate < this.updateInterval) {
       return this.currentGains;
@@ -166,10 +177,17 @@ export class AdaptiveVolumeAlgorithm {
   
   // Mise à jour de la sensibilité
   setSensitivity(level) {
+    if (typeof level !== 'string') {
+      console.warn('Invalid sensitivity level type:', typeof level);
+      return false;
+    }
+    
     if (this.params[level]) {
       this.sensitivity = level;
       return true;
     }
+    
+    console.warn('Unknown sensitivity level:', level);
     return false;
   }
   
