@@ -76,7 +76,7 @@
   transition: width 0.2s ease;
 }
 
-.sensitivity-section {
+.sensitivity-section, .spatial-section {
   margin: 16px 0;
 }
 
@@ -98,6 +98,91 @@
 .sensitivity-btn.active {
   background: #3498db;
   color: white;
+}
+
+/* Contrôles Audio Spatial */
+.spatial-section .section-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.m4-badge {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: bold;
+}
+
+.spatial-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 8px;
+}
+
+.spatial-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.toggle {
+  position: relative;
+  display: inline-block;
+  width: 40px;
+  height: 20px;
+}
+
+.toggle input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #ccc;
+  transition: .4s;
+  border-radius: 20px;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 16px;
+  width: 16px;
+  left: 2px;
+  bottom: 2px;
+  background-color: white;
+  transition: .4s;
+  border-radius: 50%;
+}
+
+input:checked + .slider {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+input:checked + .slider:before {
+  transform: translateX(20px);
+}
+
+.toggle-label {
+  font-size: 12px;
+  color: #666;
+}
+
+.spatial-info {
+  font-size: 11px;
+  color: #888;
+  font-style: italic;
 }
 
 .gains-section {

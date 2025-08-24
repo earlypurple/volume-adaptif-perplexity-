@@ -1,10 +1,18 @@
-# Volume Adaptatif Pro
+# Volume Adaptatif Pro 2.0 🎧
 
 ## Description
 Volume Adaptatif Pro est une extension de navigateur MV3 pour **Chrome** et **Firefox** qui ajuste automatiquement :
 - le volume des haut-parleurs (retour audio)
 - le gain du microphone  
 en fonction du **bruit ambiant** lors des conférences vidéo (Zoom, Teams, Meet, Webex…).
+
+### 🚀 Nouveau : Audio Spatial pour MacBook Air M4 2025
+Version 2.0 avec support complet de l'audio spatial optimisé pour les dernières technologies :
+- **Audio spatial 3D** avec positionnement des participants
+- **Intelligence Artificielle** pour la détection vocale avancée
+- **Optimisations MacBook Air M4** utilisant le Neural Engine
+- **AudioWorklet** pour des performances maximales
+- **Suppression d'écho avancée** pour les microphones MacBook Air
 
 ## Fonctionnalités
 1. **Contrôle Adaptatif**  

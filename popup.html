@@ -48,6 +48,26 @@
         </div>
       </section>
       
+      <!-- Audio Spatial (MacBook Air M4) -->
+      <section class="spatial-section" id="spatialSection" style="display: none;">
+        <label class="section-label">
+          <span>🎧 Audio Spatial</span>
+          <span class="m4-badge">M4</span>
+        </label>
+        <div class="spatial-controls">
+          <div class="spatial-toggle">
+            <label class="toggle">
+              <input type="checkbox" id="spatialToggle">
+              <span class="slider"></span>
+            </label>
+            <span class="toggle-label">Activé</span>
+          </div>
+          <div class="spatial-info">
+            <span id="participantCount">0 participants</span>
+          </div>
+        </div>
+      </section>
+      
       <!-- Gains actuels -->
       <section class="gains-section">
         <div class="gain-item">
@@ -73,6 +93,9 @@
         </button>
         <button id="settingsButton" class="btn btn-outline">
           <span>⚙️</span> Paramètres
+        </button>
+        <button id="spatialSettingsButton" class="btn btn-outline" style="display: none;">
+          <span>🎧</span> Spatial
         </button>
       </section>
     </main>

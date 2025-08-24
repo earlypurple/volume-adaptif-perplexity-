@@ -4,10 +4,14 @@ class ConferenceAudioProcessor {
     this.audioContext = null;
     this.analyser = null;
     this.gainNodes = new Map();
+    this.spatialNodes = new Map(); // Nouveaux nœuds spatiaux
+    this.participantPositions = new Map(); // Positions des participants
     this.isProcessing = false;
     this.noiseBuffer = new Float32Array(2048);
     this.referenceLevel = 35;
     this.lastUpdate = 0;
+    this.isMacBookAirM4 = this.detectMacBookAirM4();
+    this.spatialWorklet = null;
     this.init();
   }
 
@@ -21,6 +25,74 @@ class ConferenceAudioProcessor {
     
     // Écouter les messages du background script
     chrome.runtime.onMessage.addListener(this.handleMessage.bind(this));
+    
+    // Initialiser la détection automatique des participants
+    this.initializeParticipantDetection();
+  }
+  
+  detectMacBookAirM4() {
+    // Détection du MacBook Air M4
+    const userAgent = navigator.userAgent.toLowerCase();
+    const isMac = userAgent.includes('mac');
+    const hasAdvancedAudio = 'AudioWorklet' in window && 'createPanner' in (AudioContext.prototype || webkitAudioContext.prototype);
+    const hasM4Features = navigator.hardwareConcurrency >= 8;
+    
+    return isMac && hasAdvancedAudio && hasM4Features;
+  }
+  
+  initializeParticipantDetection() {
+    // Observer pour détecter automatiquement les nouveaux participants vidéo
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        mutation.addedNodes.forEach((node) => {
+          if (node.nodeType === Node.ELEMENT_NODE) {
+            // Détecter les éléments vidéo des participants
+            const videoElements = node.querySelectorAll ? 
+              node.querySelectorAll('video, audio') : 
+              (node.tagName === 'VIDEO' || node.tagName === 'AUDIO') ? [node] : [];
+            
+            videoElements.forEach((element, index) => {
+              this.assignSpatialPosition(element, index);
+            });
+          }
+        });
+      });
+    });
+    
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true
+    });
+    
+    // Traiter les éléments existants
+    setTimeout(() => {
+      const existingElements = document.querySelectorAll('video, audio');
+      existingElements.forEach((element, index) => {
+        this.assignSpatialPosition(element, index);
+      });
+    }, 2000);
+  }
+  
+  assignSpatialPosition(element, index) {
+    // Assigner une position spatiale à chaque participant
+    const positions = [
+      { x: 0, y: 0, z: -1 },     // Centre (utilisateur principal)
+      { x: -2, y: 0, z: -1 },   // Gauche
+      { x: 2, y: 0, z: -1 },    // Droite
+      { x: -1, y: 1, z: -1 },   // Gauche-haut
+      { x: 1, y: 1, z: -1 },    // Droite-haut
+      { x: -3, y: 0, z: -2 },   // Loin gauche
+      { x: 3, y: 0, z: -2 },    // Loin droite
+    ];
+    
+    const position = positions[index % positions.length];
+    this.participantPositions.set(element, position);
+    
+    // Appliquer la position si l'élément est déjà amélioré
+    if (this.spatialNodes.has(element)) {
+      const pannerNode = this.spatialNodes.get(element);
+      pannerNode.setPosition(position.x, position.y, position.z);
+    }
   }
 
   async setupAudioProcessing() {
@@ -33,6 +105,16 @@ class ConferenceAudioProcessor {
         document.addEventListener('click', () => {
           this.audioContext.resume();
         }, { once: true });
+      }
+      
+      // Initialiser l'AudioWorklet spatial pour MacBook Air M4
+      if (this.isMacBookAirM4) {
+        try {
+          await this.audioContext.audioWorklet.addModule(chrome.runtime.getURL('spatial-audio-processor.js'));
+          console.log('AudioWorklet spatial chargé pour MacBook Air M4');
+        } catch (error) {
+          console.warn('Impossible de charger l\'AudioWorklet spatial:', error);
+        }
       }
       
       // Surveiller les éléments audio/vidéo
@@ -152,18 +234,75 @@ class ConferenceAudioProcessor {
     element.dataset.volumeEnhanced = 'true';
     
     try {
-      // Créer la chaîne de traitement audio
+      // Créer la chaîne de traitement audio de base
       const source = this.audioContext.createMediaElementSource(element);
       const gainNode = this.audioContext.createGain();
       
-      // Connecter: source -> gain -> destination
-      source.connect(gainNode);
-      gainNode.connect(this.audioContext.destination);
+      let currentNode = gainNode;
+      
+      // Ajouter le traitement spatial pour MacBook Air M4
+      if (this.isMacBookAirM4) {
+        // Créer un nœud de panoramique 3D
+        const pannerNode = this.audioContext.createPanner();
+        pannerNode.panningModel = 'HRTF';
+        pannerNode.distanceModel = 'exponential';
+        pannerNode.maxDistance = 10;
+        pannerNode.rolloffFactor = 1;
+        pannerNode.coneInnerAngle = 360;
+        pannerNode.coneOuterAngle = 0;
+        pannerNode.coneOuterGain = 0;
+        
+        // Appliquer la position spatiale si elle existe
+        const position = this.participantPositions.get(element) || { x: 0, y: 0, z: -1 };
+        pannerNode.setPosition(position.x, position.y, position.z);
+        pannerNode.setOrientation(0, 0, -1);
+        
+        // Créer un processeur spatial avec AudioWorklet
+        let spatialProcessor = null;
+        try {
+          spatialProcessor = new AudioWorkletNode(this.audioContext, 'spatial-audio-processor');
+          spatialProcessor.port.postMessage({
+            type: 'UPDATE_M4_CONFIG',
+            data: {
+              useNeuralEngine: true,
+              enhancedDSP: true,
+              spatialProcessing: true,
+              binauralEnhancement: true
+            }
+          });
+        } catch (error) {
+          console.warn('Impossible de créer l\'AudioWorkletNode spatial:', error);
+        }
+        
+        // Connecter: source -> gain -> spatial processor -> panner -> destination
+        source.connect(gainNode);
+        
+        if (spatialProcessor) {
+          gainNode.connect(spatialProcessor);
+          spatialProcessor.connect(pannerNode);
+        } else {
+          gainNode.connect(pannerNode);
+        }
+        
+        pannerNode.connect(this.audioContext.destination);
+        
+        // Stocker les références
+        this.spatialNodes.set(element, pannerNode);
+        if (spatialProcessor) {
+          element.spatialProcessor = spatialProcessor;
+        }
+        
+        currentNode = pannerNode;
+      } else {
+        // Traitement audio standard
+        source.connect(gainNode);
+        gainNode.connect(this.audioContext.destination);
+      }
       
       // Stocker la référence du gain node
       this.gainNodes.set(element, gainNode);
       
-      console.log('Élément multimédia amélioré:', element);
+      console.log('Élément multimédia amélioré avec audio spatial:', element);
       
     } catch (error) {
       console.warn('Impossible d\'améliorer l\'élément multimédia:', error);
@@ -180,13 +319,73 @@ class ConferenceAudioProcessor {
         this.startCalibration();
         break;
         
+      case 'UPDATE_SPATIAL_POSITIONS':
+        this.updateSpatialPositions(message.positions);
+        break;
+        
+      case 'TOGGLE_SPATIAL_AUDIO':
+        this.toggleSpatialAudio(message.enabled);
+        break;
+        
+      case 'UPDATE_SPATIAL_PARAMS':
+        this.updateSpatialParams(message.params);
+        break;
+        
+      case 'TEST_SPATIAL_AUDIO':
+        this.testSpatialAudio();
+        break;
+        
       case 'GET_STATUS':
         sendResponse({
           isProcessing: this.isProcessing,
-          elementsCount: this.gainNodes.size
+          elementsCount: this.gainNodes.size,
+          spatialElementsCount: this.spatialNodes.size,
+          isMacBookAirM4: this.isMacBookAirM4
         });
         break;
     }
+  }
+  
+  updateSpatialParams(params) {
+    // Mettre à jour les paramètres du processeur spatial
+    this.spatialNodes.forEach((pannerNode, element) => {
+      if (element.spatialProcessor) {
+        element.spatialProcessor.port.postMessage({
+          type: 'UPDATE_SPATIAL_PARAMS',
+          data: params
+        });
+      }
+    });
+  }
+  
+  testSpatialAudio() {
+    if (!this.isMacBookAirM4) return;
+    
+    // Test de l'audio spatial en déplaçant temporairement les sources
+    const testPositions = [
+      { x: -2, y: 0, z: -1 },
+      { x: 2, y: 0, z: -1 },
+      { x: 0, y: 1, z: -2 },
+      { x: 0, y: 0, z: -1 }
+    ];
+    
+    let positionIndex = 0;
+    const testInterval = setInterval(() => {
+      this.spatialNodes.forEach((pannerNode) => {
+        const pos = testPositions[positionIndex % testPositions.length];
+        pannerNode.setPosition(pos.x, pos.y, pos.z);
+      });
+      
+      positionIndex++;
+      if (positionIndex >= testPositions.length * 2) {
+        clearInterval(testInterval);
+        // Restaurer les positions originales
+        this.spatialNodes.forEach((pannerNode, element) => {
+          const originalPos = this.participantPositions.get(element) || { x: 0, y: 0, z: -1 };
+          pannerNode.setPosition(originalPos.x, originalPos.y, originalPos.z);
+        });
+      }
+    }, 500);
   }
 
   applySpeakerGain(speakerGain) {
