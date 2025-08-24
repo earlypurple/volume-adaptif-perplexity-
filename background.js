@@ -11,11 +11,35 @@ class VolumeAdaptiveManager {
       referenceLevel: 35,
       profiles: {}
     };
+    this.features = {
+      isMacBookAirM4: false,
+      hasAudioWorklet: false
+    };
     this.algorithm = new AdaptiveVolumeAlgorithm(this.settings);
     this.init();
   }
 
+  detectFeatures() {
+    // La détection est simplifiée pour être plus fiable.
+    // On vérifie juste la capacité d'utiliser AudioWorklet.
+    // Note : 'self' est le contexte global pour un service worker.
+    this.features.hasAudioWorklet = 'AudioWorklet' in self;
+
+    // La détection M4 est désactivée car non fiable.
+    // On la laisse à 'false' pour désactiver les fonctionnalités associées.
+    this.features.isMacBookAirM4 = false;
+
+    // On peut passer cette information à l'algorithme si besoin
+    this.algorithm.isMacBookAirM4 = this.features.isMacBookAirM4;
+    if(this.features.isMacBookAirM4) {
+        this.algorithm.enableM4Optimizations();
+    }
+  }
+
   async init() {
+    // Détecter les fonctionnalités au démarrage
+    this.detectFeatures();
+
     // Charger les paramètres sauvegardés
     const stored = await chrome.storage.sync.get(['volumeSettings']);
     if (stored.volumeSettings) {
@@ -67,6 +91,10 @@ class VolumeAdaptiveManager {
         this.settings.referenceLevel = message.referenceLevel;
         this.algorithm.referenceLevel = message.referenceLevel;
         await this.updateSettings({ referenceLevel: message.referenceLevel });
+        break;
+
+      case 'GET_FEATURES_CONFIG':
+        sendResponse(this.features);
         break;
     }
     return true; // Indiquer une réponse asynchrone
