@@ -36,22 +36,26 @@ class VolumeAdaptiveManager {
   }
 
   async init() {
-    // Charger les paramètres sauvegardés
-    const stored = await chrome.storage.sync.get(['volumeSettings']);
-    if (stored.volumeSettings) {
-      this.settings = { ...this.settings, ...stored.volumeSettings };
-      this.algorithm.referenceLevel = this.settings.referenceLevel;
-      this.algorithm.setSensitivity(this.settings.sensitivity);
-    }
+    try {
+      // Charger les paramètres sauvegardés
+      const stored = await chrome.storage.sync.get(['volumeSettings']);
+      if (stored.volumeSettings) {
+        this.settings = { ...this.settings, ...stored.volumeSettings };
+        this.algorithm.referenceLevel = this.settings.referenceLevel;
+        this.algorithm.setSensitivity(this.settings.sensitivity);
+      }
 
-    // Détecter les fonctionnalités au démarrage (après chargement des settings)
-    this.detectFeatures();
-    
-    // Écouter les messages
-    chrome.runtime.onMessage.addListener(this.handleMessage.bind(this));
-    
-    // Écouter les changements d'onglets
-    chrome.tabs.onActivated.addListener(this.handleTabChange.bind(this));
+      // Détecter les fonctionnalités au démarrage (après chargement des settings)
+      this.detectFeatures();
+      
+      // Écouter les messages
+      chrome.runtime.onMessage.addListener(this.handleMessage.bind(this));
+      
+      // Écouter les changements d'onglets
+      chrome.tabs.onActivated.addListener(this.handleTabChange.bind(this));
+    } catch (error) {
+      console.error('Error during initialization:', error);
+    }
   }
 
   handleTabChange({ tabId }) {
@@ -59,104 +63,140 @@ class VolumeAdaptiveManager {
   }
 
   async handleMessage(message, sender, sendResponse) {
-    switch (message.type) {
-      case 'TOGGLE_ACTIVATION':
-        await this.toggleActivation(message.active, sender.tab.id);
-        sendResponse({ success: true, isActive: this.isActive });
-        break;
-        
-      case 'NOISE_LEVEL_UPDATE':
-        if (this.isActive) {
-            this.processNoiseLevel(message.data, sender.tab.id);
-        }
-        break;
-        
-      case 'GET_SETTINGS':
-        sendResponse(this.settings);
-        break;
-        
-      case 'UPDATE_SETTINGS':
-        await this.updateSettings(message.settings);
-        sendResponse({ success: true });
-        break;
+    try {
+      switch (message.type) {
+        case 'TOGGLE_ACTIVATION':
+          await this.toggleActivation(message.active, sender.tab.id);
+          sendResponse({ success: true, isActive: this.isActive });
+          break;
+          
+        case 'NOISE_LEVEL_UPDATE':
+          if (this.isActive) {
+              this.processNoiseLevel(message.data, sender.tab.id);
+          }
+          break;
+          
+        case 'GET_SETTINGS':
+          sendResponse(this.settings);
+          break;
+          
+        case 'UPDATE_SETTINGS':
+          await this.updateSettings(message.settings);
+          sendResponse({ success: true });
+          break;
 
-      case 'START_CALIBRATION':
-        if(this.activeTabId) {
-            chrome.tabs.sendMessage(this.activeTabId, { type: 'START_CALIBRATION' });
-        }
-        break;
+        case 'START_CALIBRATION':
+          if(this.activeTabId) {
+              try {
+                chrome.tabs.sendMessage(this.activeTabId, { type: 'START_CALIBRATION' });
+              } catch (error) {
+                console.error('Failed to start calibration:', error);
+              }
+          }
+          break;
 
-      case 'CALIBRATION_COMPLETE':
-        this.settings.referenceLevel = message.referenceLevel;
-        this.algorithm.referenceLevel = message.referenceLevel;
-        await this.updateSettings({ referenceLevel: message.referenceLevel });
-        break;
+        case 'CALIBRATION_COMPLETE':
+          this.settings.referenceLevel = message.referenceLevel;
+          this.algorithm.referenceLevel = message.referenceLevel;
+          await this.updateSettings({ referenceLevel: message.referenceLevel });
+          break;
 
-      case 'GET_FEATURES_CONFIG':
-        sendResponse(this.features);
-        break;
+        case 'GET_FEATURES_CONFIG':
+          sendResponse(this.features);
+          break;
+          
+        default:
+          console.warn('Unknown message type:', message.type);
+      }
+    } catch (error) {
+      console.error('Error handling message:', error);
+      sendResponse({ success: false, error: error.message });
     }
     return true; // Indiquer une réponse asynchrone
   }
 
   async toggleActivation(shouldBeActive, tabId) {
-    this.isActive = shouldBeActive;
-    this.activeTabId = this.isActive ? tabId : null;
+    try {
+      this.isActive = shouldBeActive;
+      this.activeTabId = this.isActive ? tabId : null;
 
-    if (this.isActive) {
-        // Injecter le script de traitement audio
-        await chrome.scripting.executeScript({
-          target: { tabId },
-          files: ['inject.js']
-        });
+      if (this.isActive) {
+          // Injecter le script de traitement audio
+          await chrome.scripting.executeScript({
+            target: { tabId },
+            files: ['inject.js']
+          });
+      }
+      
+      // Sauvegarder l'état
+      await chrome.storage.sync.set({ 
+        volumeActive: this.isActive,
+        activeTabId: this.activeTabId
+      });
+    } catch (error) {
+      console.error('Error toggling activation:', error);
+      // Revert state on error
+      this.isActive = !shouldBeActive;
+      this.activeTabId = null;
+      throw error;
     }
-    
-    // Sauvegarder l'état
-    await chrome.storage.sync.set({ 
-      volumeActive: this.isActive,
-      activeTabId: this.activeTabId
-    });
   }
 
   processNoiseLevel(data, tabId) {
-    const { noiseLevel, timestamp } = data;
-    
-    // Calculer les nouveaux gains via l'algorithme centralisé
-    const gains = this.algorithm.calculateGains(noiseLevel, timestamp);
-    
-    const finalGains = {
-        speakerGain: gains.speaker,
-        micGain: gains.mic,
-        timestamp: gains.timestamp
-    };
+    try {
+      const { noiseLevel, timestamp } = data;
+      
+      // Validate input data
+      if (typeof noiseLevel !== 'number' || isNaN(noiseLevel)) {
+        console.warn('Invalid noise level received:', noiseLevel);
+        return;
+      }
+      
+      // Calculer les nouveaux gains via l'algorithme centralisé
+      const gains = this.algorithm.calculateGains(noiseLevel, timestamp);
+      
+      const finalGains = {
+          speakerGain: gains.speaker,
+          micGain: gains.mic,
+          timestamp: gains.timestamp
+      };
 
-    // 1. Envoyer les ajustements de HAUT-PARLEUR au content script
-    chrome.tabs.sendMessage(tabId, {
-      type: 'APPLY_SPEAKER_GAIN',
-      gain: finalGains.speakerGain
-    });
+      // 1. Envoyer les ajustements de HAUT-PARLEUR au content script
+      chrome.tabs.sendMessage(tabId, {
+        type: 'APPLY_SPEAKER_GAIN',
+        gain: finalGains.speakerGain
+      }).catch(error => {
+        console.warn('Failed to send speaker gain message:', error);
+      });
 
-    // 2. Injecter directement l'ajustement du MICROPHONE
-    chrome.scripting.executeScript({
-        target: { tabId: tabId },
-        func: (gain) => {
-            if (window.volumeAdaptiveControls && window.volumeAdaptiveControls.setMicGain) {
-                window.volumeAdaptiveControls.setMicGain(gain);
-            }
-        },
-        args: [finalGains.micGain],
-        world: 'MAIN'
-    });
+      // 2. Injecter directement l'ajustement du MICROPHONE
+      chrome.scripting.executeScript({
+          target: { tabId: tabId },
+          func: (gain) => {
+              if (window.volumeAdaptiveControls && window.volumeAdaptiveControls.setMicGain) {
+                  window.volumeAdaptiveControls.setMicGain(gain);
+              }
+          },
+          args: [finalGains.micGain],
+          world: 'MAIN'
+      }).catch(error => {
+        console.warn('Failed to inject mic gain script:', error);
+      });
 
-    // 3. Envoyer la mise à jour à la popup
-    chrome.runtime.sendMessage({
-        type: 'VOLUME_UPDATE',
-        data: {
-            noiseLevel: noiseLevel,
-            speakerGain: finalGains.speakerGain,
-            micGain: finalGains.micGain
-        }
-    });
+      // 3. Envoyer la mise à jour à la popup
+      chrome.runtime.sendMessage({
+          type: 'VOLUME_UPDATE',
+          data: {
+              noiseLevel: noiseLevel,
+              speakerGain: finalGains.speakerGain,
+              micGain: finalGains.micGain
+          }
+      }).catch(error => {
+        console.warn('Failed to send volume update to popup:', error);
+      });
+    } catch (error) {
+      console.error('Error processing noise level:', error);
+    }
   }
 
   async updateSettings(newSettings) {

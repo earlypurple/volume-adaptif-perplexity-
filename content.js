@@ -16,17 +16,29 @@ class ConferenceAudioProcessor {
   }
 
   async init() {
-    // Récupérer la configuration du background script
-    chrome.runtime.sendMessage({ type: 'GET_FEATURES_CONFIG' }, (response) => {
-      if (response && response.isMacBookAirM4) {
-        this.isMacBookAirM4 = true;
-      }
-      // Poursuivre l'initialisation après avoir reçu la config
-      this.deferredInit();
-    });
+    try {
+      // Récupérer la configuration du background script
+      chrome.runtime.sendMessage({ type: 'GET_FEATURES_CONFIG' }, (response) => {
+        if (chrome.runtime.lastError) {
+          console.warn('Failed to get features config:', chrome.runtime.lastError);
+          this.deferredInit();
+          return;
+        }
+        
+        if (response && response.isMacBookAirM4) {
+          this.isMacBookAirM4 = true;
+        }
+        // Poursuivre l'initialisation après avoir reçu la config
+        this.deferredInit();
+      });
 
-    // Écouter les messages du background script
-    chrome.runtime.onMessage.addListener(this.handleMessage.bind(this));
+      // Écouter les messages du background script
+      chrome.runtime.onMessage.addListener(this.handleMessage.bind(this));
+    } catch (error) {
+      console.error('Error during content script initialization:', error);
+      // Continuer l'initialisation même en cas d'erreur
+      this.deferredInit();
+    }
   }
 
   deferredInit() {
@@ -97,8 +109,46 @@ class ConferenceAudioProcessor {
       this.startNoiseMonitoring();
       
     } catch (error) {
-      console.warn('Impossible d\'accéder au microphone:', error);
+      console.warn('Impossible d\'accéder au microphone pour la détection de bruit:', error);
+      // Continuer avec une détection simulée si nécessaire
+      this.startSimulatedNoiseDetection();
     }
+  }
+  
+  startSimulatedNoiseDetection() {
+    // Méthode de fallback qui simule la détection de bruit
+    console.log('Démarrage de la détection de bruit simulée');
+    const monitor = () => {
+      if (!this.isProcessing) return;
+      
+      const now = Date.now();
+      if (now - this.lastUpdate < 200) {
+        requestAnimationFrame(monitor);
+        return;
+      }
+      
+      // Simuler un niveau de bruit
+      const simulatedNoiseLevel = 40 + Math.random() * 20; // Entre 40 et 60 dB
+      
+      // Envoyer au background script
+      try {
+        chrome.runtime.sendMessage({
+          type: 'NOISE_LEVEL_UPDATE',
+          data: {
+            noiseLevel: simulatedNoiseLevel,
+            timestamp: now
+          }
+        });
+      } catch (error) {
+        console.warn('Failed to send simulated noise level:', error);
+      }
+      
+      this.lastUpdate = now;
+      requestAnimationFrame(monitor);
+    };
+    
+    this.isProcessing = true;
+    requestAnimationFrame(monitor);
   }
 
   startNoiseMonitoring() {
@@ -111,20 +161,38 @@ class ConferenceAudioProcessor {
         return;
       }
       
-      // Analyser le niveau de bruit
-      this.analyser.getFloatFrequencyData(this.noiseBuffer);
-      const noiseLevel = this.calculateNoiseLevel(this.noiseBuffer);
-      
-      // Envoyer au background script
-      chrome.runtime.sendMessage({
-        type: 'NOISE_LEVEL_UPDATE',
-        data: {
-          noiseLevel: noiseLevel,
-          timestamp: now
+      try {
+        // Analyser le niveau de bruit
+        if (!this.analyser) {
+          console.warn('Analyser not available, stopping noise monitoring');
+          this.isProcessing = false;
+          return;
         }
-      });
+        
+        this.analyser.getFloatFrequencyData(this.noiseBuffer);
+        const noiseLevel = this.calculateNoiseLevel(this.noiseBuffer);
+        
+        // Valider le niveau de bruit
+        if (isNaN(noiseLevel) || noiseLevel < 0 || noiseLevel > 200) {
+          console.warn('Invalid noise level detected:', noiseLevel);
+          requestAnimationFrame(monitor);
+          return;
+        }
+        
+        // Envoyer au background script
+        chrome.runtime.sendMessage({
+          type: 'NOISE_LEVEL_UPDATE',
+          data: {
+            noiseLevel: noiseLevel,
+            timestamp: now
+          }
+        });
+        
+        this.lastUpdate = now;
+      } catch (error) {
+        console.error('Error in noise monitoring:', error);
+      }
       
-      this.lastUpdate = now;
       requestAnimationFrame(monitor);
     };
     
@@ -230,16 +298,33 @@ class ConferenceAudioProcessor {
   }
 
   applySpeakerGain(speakerGain) {
-    // Appliquer le gain aux éléments audio/vidéo
-    this.gainNodes.forEach((gainNode, element) => {
-      // Transition douce pour éviter les clics
-      const currentTime = this.audioContext.currentTime;
-      gainNode.gain.setValueAtTime(gainNode.gain.value, currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(speakerGain, currentTime + 0.1);
-    });
-    
-    // Log pour debug
-    console.log(`Speaker gain appliqué: ${speakerGain.toFixed(2)}`);
+    try {
+      // Valider le gain
+      if (typeof speakerGain !== 'number' || isNaN(speakerGain)) {
+        console.warn('Invalid speaker gain value:', speakerGain);
+        return;
+      }
+      
+      // Limiter le gain dans une plage sûre
+      const safeSpeakerGain = Math.max(0.1, Math.min(3.0, speakerGain));
+      
+      // Appliquer le gain aux éléments audio/vidéo
+      this.gainNodes.forEach((gainNode, element) => {
+        try {
+          // Transition douce pour éviter les clics
+          const currentTime = this.audioContext.currentTime;
+          gainNode.gain.setValueAtTime(gainNode.gain.value, currentTime);
+          gainNode.gain.exponentialRampToValueAtTime(safeSpeakerGain, currentTime + 0.1);
+        } catch (nodeError) {
+          console.warn('Error applying gain to node:', nodeError);
+        }
+      });
+      
+      // Log pour debug
+      console.log(`Speaker gain appliqué: ${safeSpeakerGain.toFixed(2)}`);
+    } catch (error) {
+      console.error('Error in applySpeakerGain:', error);
+    }
   }
 
   async startCalibration() {

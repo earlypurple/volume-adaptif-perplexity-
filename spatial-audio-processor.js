@@ -234,4 +234,4 @@ class SpatialAudioProcessor extends AudioWorkletProcessor {
 }
 
 // Enregistrer le processeur
-registerProcessor('spatial-audio-processor', SpatialAudioProcessor);
+registerProcessor('spatial-audio-processor', SpatialAudioProcessor);;
