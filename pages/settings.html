@@ -41,6 +41,16 @@
         <input type="number" id="alertThreshold" min="20" max="120" value="80">
       </div>
       <div class="card">
+        <h2>Fonctionnalités avancées</h2>
+        <label>
+          <input type="checkbox" id="m4Enabled">
+          Activer les optimisations pour MacBook Air M4
+        </label>
+        <p class="description">
+          Cochez cette case si vous utilisez un MacBook Air (2025, M4) pour activer l'audio spatial et d'autres optimisations de performance.
+        </p>
+      </div>
+      <div class="card">
         <button id="saveSettings" class="btn btn-outline">Enregistrer</button>
       </div>
     </div>
@@ -53,6 +63,7 @@
       const sens = document.getElementById('sensitivitySelect');
       const voiceChk = document.getElementById('voicePriority');
       const alertInput = document.getElementById('alertThreshold');
+      const m4EnabledChk = document.getElementById('m4Enabled');
 
       // Charger les paramètres existants
       chrome.storage.sync.get(['volumeSettings'], (res) => {
@@ -60,6 +71,7 @@
         sens.value = s.sensitivity || 'medium';
         voiceChk.checked = s.voicePriority || false;
         alertInput.value = s.alertThreshold || 80;
+        m4EnabledChk.checked = s.m4Enabled || false;
         // Profils
         (s.profiles || []).forEach(p => addProfileItem(p.domain, p.settings));
       });
@@ -91,6 +103,7 @@
           sensitivity: sens.value,
           voicePriority: voiceChk.checked,
           alertThreshold: parseInt(alertInput.value),
+          m4Enabled: m4EnabledChk.checked,
           profiles: profs
         };
         chrome.storage.sync.set({ volumeSettings: settings }, () => {

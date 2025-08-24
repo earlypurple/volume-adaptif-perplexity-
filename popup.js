@@ -57,9 +57,9 @@ document.addEventListener('DOMContentLoaded', () => {
   function updateSpatialUI(data) {
     if (data.isMacBookAirM4 !== undefined) {
       isMacBookAirM4 = data.isMacBookAirM4;
-      // La section spatiale est masquée par défaut pour l'instant
-      spatialSection.style.display = 'none'; // isMacBookAirM4 ? 'block' : 'none';
-      spatialSettingsBtn.style.display = 'none'; // isMacBookAirM4 ? 'inline-block' : 'none';
+      // Afficher la section si la fonctionnalité M4 est activée
+      spatialSection.style.display = isMacBookAirM4 ? 'block' : 'none';
+      spatialSettingsBtn.style.display = isMacBookAirM4 ? 'inline-block' : 'none';
     }
     
     if (data.spatialElementsCount !== undefined) {
@@ -101,6 +101,12 @@ document.addEventListener('DOMContentLoaded', () => {
     chrome.runtime.openOptionsPage();
   });
 
+  spatialToggle.addEventListener('click', () => {
+    spatialEnabled = spatialToggle.checked;
+    chrome.storage.sync.set({ spatialAudioEnabled: spatialEnabled });
+    // Potentiellement envoyer un message pour activer/désactiver l'effet immédiatement
+  });
+
   // --- Message Listener ---
   chrome.runtime.onMessage.addListener((msg) => {
     if (msg.type === 'VOLUME_UPDATE') {
@@ -109,32 +115,42 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // --- Initialization ---
-  function initialize() {
-      // La détection est maintenant centralisée dans le background script
-      
-      chrome.storage.sync.get(['volumeActive', 'volumeSettings', 'spatialAudioEnabled'], (result) => {
-          isActive = result.volumeActive || false;
-          spatialEnabled = result.spatialAudioEnabled || false;
-          spatialToggle.checked = spatialEnabled;
-          
-          if (result.volumeSettings) {
-              currentSettings = result.volumeSettings;
-              updateSensitivityUI(currentSettings.sensitivity);
-          }
-          updateStatusUI();
-          
-          // Obtenir le statut des éléments spatiaux
-          chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-            if (tabs[0]) {
-              chrome.tabs.sendMessage(tabs[0].id, { type: 'GET_STATUS' }, (response) => {
-                if (response && !chrome.runtime.lastError) {
-                  updateSpatialUI(response);
-                }
-              });
+  async function initialize() {
+    // Charger l'état et les paramètres depuis le stockage
+    const data = await chrome.storage.sync.get(['volumeActive', 'volumeSettings', 'spatialAudioEnabled']);
+
+    isActive = data.volumeActive || false;
+    spatialEnabled = data.spatialAudioEnabled || false;
+    spatialToggle.checked = spatialEnabled;
+
+    if (data.volumeSettings) {
+        currentSettings = data.volumeSettings;
+        updateSensitivityUI(currentSettings.sensitivity);
+    }
+    updateStatusUI();
+
+    // Obtenir le statut de l'onglet actif
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (tab) {
+        try {
+            const response = await chrome.tabs.sendMessage(tab.id, { type: 'GET_STATUS' });
+            if (response) {
+                updateSpatialUI(response);
             }
-          });
-      });
+        } catch (e) {
+            console.warn("L'onglet actif ne répond pas, peut-être une page protégée.", e);
+            spatialSection.style.display = 'none';
+        }
+    }
   }
 
-  initialize();
+  // Écouter les changements de paramètres pour garder l'UI synchronisée
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === 'sync' && changes.volumeSettings) {
+      currentSettings = changes.volumeSettings.newValue;
+      updateSensitivityUI(currentSettings.sensitivity);
+    }
+  });
+
+  initialize().catch(console.error);
 });
