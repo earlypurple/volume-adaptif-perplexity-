@@ -37,8 +37,8 @@ class ConferenceAudioProcessor {
       this.setupAudioProcessing();
     }
     
-    // La détection des participants est désactivée car elle n'est utilisée que pour l'audio spatial.
-    // this.initializeParticipantDetection();
+    // La détection des participants est activée pour l'audio spatial.
+    this.initializeParticipantDetection();
   }
 
   async setupAudioProcessing() {
@@ -53,15 +53,15 @@ class ConferenceAudioProcessor {
         }, { once: true });
       }
       
-      // L'initialisation de l'AudioWorklet spatial est désactivée.
-      // if (this.isMacBookAirM4) {
-      //   try {
-      //     await this.audioContext.audioWorklet.addModule(chrome.runtime.getURL('spatial-audio-processor.js'));
-      //     console.log('AudioWorklet spatial chargé pour MacBook Air M4');
-      //   } catch (error) {
-      //     console.warn('Impossible de charger l\'AudioWorklet spatial:', error);
-      //   }
-      // }
+      // L'initialisation de l'AudioWorklet spatial est activée si M4 est supporté.
+      if (this.isMacBookAirM4) {
+        try {
+          await this.audioContext.audioWorklet.addModule(chrome.runtime.getURL('spatial-audio-processor.js'));
+          console.log('AudioWorklet spatial chargé pour MacBook Air M4');
+        } catch (error) {
+          console.warn('Impossible de charger l\'AudioWorklet spatial:', error);
+        }
+      }
       
       // Surveiller les éléments audio/vidéo
       this.observeMediaElements();
@@ -180,23 +180,32 @@ class ConferenceAudioProcessor {
     element.dataset.volumeEnhanced = 'true';
     
     try {
-      // Créer la chaîne de traitement audio de base
       const source = this.audioContext.createMediaElementSource(element);
       const gainNode = this.audioContext.createGain();
+
+      if (this.isMacBookAirM4 && this.audioContext.audioWorklet) {
+        // Chaîne de traitement avec audio spatial
+        const spatialNode = new AudioWorkletNode(this.audioContext, 'spatial-audio-processor');
+        source.connect(gainNode).connect(spatialNode).connect(this.audioContext.destination);
+        this.spatialNodes.set(element, spatialNode);
+        console.log('Élément multimédia amélioré avec audio spatial:', element);
+      } else {
+        // Chaîne de traitement simple
+        source.connect(gainNode).connect(this.audioContext.destination);
+        console.log('Élément multimédia amélioré (sans audio spatial):', element);
+      }
       
-      // Le traitement spatial est désactivé pour le moment car il n'est pas fonctionnel.
-      // On utilise une chaîne de traitement audio simple et fiable.
-      source.connect(gainNode);
-      gainNode.connect(this.audioContext.destination);
-      
-      // Stocker la référence du gain node
       this.gainNodes.set(element, gainNode);
-      
-      console.log('Élément multimédia amélioré avec audio spatial:', element);
       
     } catch (error) {
       console.warn('Impossible d\'améliorer l\'élément multimédia:', error);
     }
+  }
+
+  initializeParticipantDetection() {
+    console.log("Initialisation de la détection des participants (simulation).");
+    // Dans une implémentation réelle, on utiliserait un MutationObserver
+    // pour trouver les éléments vidéo des participants et leur assigner des positions.
   }
 
   handleMessage(message, sender, sendResponse) {
