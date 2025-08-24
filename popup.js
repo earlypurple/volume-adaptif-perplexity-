@@ -57,26 +57,14 @@ document.addEventListener('DOMContentLoaded', () => {
   function updateSpatialUI(data) {
     if (data.isMacBookAirM4 !== undefined) {
       isMacBookAirM4 = data.isMacBookAirM4;
-      spatialSection.style.display = isMacBookAirM4 ? 'block' : 'none';
-      spatialSettingsBtn.style.display = isMacBookAirM4 ? 'inline-block' : 'none';
+      // La section spatiale est masquée par défaut pour l'instant
+      spatialSection.style.display = 'none'; // isMacBookAirM4 ? 'block' : 'none';
+      spatialSettingsBtn.style.display = 'none'; // isMacBookAirM4 ? 'inline-block' : 'none';
     }
     
     if (data.spatialElementsCount !== undefined) {
       participantCount.textContent = `${data.spatialElementsCount} participants`;
     }
-  }
-  
-  function detectM4Features() {
-    // Détection côté popup des fonctionnalités M4
-    const userAgent = navigator.userAgent.toLowerCase();
-    const isMac = userAgent.includes('mac');
-    const hasAdvancedAudio = 'AudioWorklet' in window;
-    const hasM4Features = navigator.hardwareConcurrency >= 8;
-    
-    const detected = isMac && hasAdvancedAudio && hasM4Features;
-    updateSpatialUI({ isMacBookAirM4: detected });
-    
-    return detected;
   }
 
   // --- Event Listeners ---
@@ -112,27 +100,6 @@ document.addEventListener('DOMContentLoaded', () => {
   settingsBtn.addEventListener('click', () => {
     chrome.runtime.openOptionsPage();
   });
-  
-  // Nouveaux événements pour l'audio spatial
-  spatialToggle.addEventListener('change', () => {
-    spatialEnabled = spatialToggle.checked;
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      if (tabs[0]) {
-        chrome.tabs.sendMessage(tabs[0].id, {
-          type: 'TOGGLE_SPATIAL_AUDIO',
-          enabled: spatialEnabled
-        });
-      }
-    });
-    
-    // Sauvegarder la préférence
-    chrome.storage.sync.set({ spatialAudioEnabled: spatialEnabled });
-  });
-  
-  spatialSettingsBtn.addEventListener('click', () => {
-    // Ouvrir une page de paramètres spatiaux avancés
-    chrome.tabs.create({ url: chrome.runtime.getURL('pages/spatial.html') });
-  });
 
   // --- Message Listener ---
   chrome.runtime.onMessage.addListener((msg) => {
@@ -143,8 +110,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // --- Initialization ---
   function initialize() {
-      // Détecter les fonctionnalités M4
-      detectM4Features();
+      // La détection est maintenant centralisée dans le background script
       
       chrome.storage.sync.get(['volumeActive', 'volumeSettings', 'spatialAudioEnabled'], (result) => {
           isActive = result.volumeActive || false;
