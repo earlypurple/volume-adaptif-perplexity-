@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Volume Adaptatif Pro",
-  "version": "1.0.0",
-  "description": "Ajustement automatique du volume pour conférences vidéo",
+  "version": "2.0.0",
+  "description": "Ajustement automatique du volume avec audio spatial pour MacBook Air M4",
   "permissions": [
     "activeTab",
     "storage",
@@ -45,7 +45,8 @@
   "web_accessible_resources": [
     {
       "resources": [
-        "inject.js"
+        "inject.js",
+        "spatial-audio-processor.js"
       ],
       "matches": [
         "<all_urls>"
